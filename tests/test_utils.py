@@ -6,6 +6,7 @@ from scipy.signal import fftconvolve
 from scipy.special import gamma
 from torch.special import gammaln
 from scipy.interpolate import RectBivariateSpline
+from scipy.optimize import brentq
 import autoprof as ap
 from utils import make_basic_sersic, make_basic_gaussian
 ######################################################################
@@ -261,6 +262,35 @@ class TestAngleOperations(unittest.TestCase):
 
         #angle scatter (iqr)
         self.assertAlmostEqual(ap.utils.angle_operations.Angle_Scatter(test_angles), np.pi, msg="incorrectly calculating iqr of list of angles")
+
+class TestIsophote(unittest.TestCase):
+
+    def test_ellipse(self):
+
+        #rescale fourier modes
+        modes = np.array([1,2]); Phim = np.array([0,0])
+        theta = np.linspace(0,2*np.pi,10)
+        Am = np.array([np.sqrt(np.array((np.cos(i * np.array(theta))).sum())**2 + np.array((np.sin(i * np.array(theta))).sum())**2) /
+                       np.array((np.cos(0 * np.array(theta))).sum()) for i in modes])
+        rescale = ap.utils.isophote.ellipse.Rscale_Fmodes(theta, modes, Am, Phim)
+        self.assertTrue(np.all(np.isfinite(rescale)),msg="rescaling from Fourier modes returning nonfinite values")
+        self.assertGreater(np.all(rescale), 0, msg="rescaling from Fourier modes returning negative scale factor")
+        
+        #parametric fourier modes
+        x_rescale, y_rescale = ap.utils.isophote.ellipse.parametric_Fmodes(theta, modes, Am, Phim)
+        self.assertTrue(np.all(np.isfinite([x_rescale,y_rescale])), msg="parametric rescaling from Fourier modes returning nonfinite values")
+        
+
+    def test_extract(self):
+
+        #iso_between - no mask, no sigmaclipping
+        model = make_basic_gaussian(x = 10., y = 10.).data.detach().numpy()
+        params = {'test':'test'}
+        fluxes = ap.utils.isophote.extract._iso_between(model,1.0,5.0,params,c=np.linspace(0,len(model),len(model)))
+                             #more=False,mask=None,sigmaclip=False,
+                             #sclip_iterations=10,sclip_nsigma=5)
+        print(fluxes)
+        stop
         
 if __name__ == "__main__":
     unittest.main()
